@@ -1,0 +1,1 @@
+{"uuid":"82ea3e1d-e5b7-4155-82b2-123677501555","name":"tests.FeedCardsTest.initPage","children":["eef497a0-5746-4de1-88d0-f10716245235"],"description":"","befores":[{"name":"initPage","status":"passed","stage":"finished","description":"","steps":[],"attachments":[],"parameters":[],"start":1776620023224,"stop":1776620023226}],"afters":[],"start":1776620023224,"stop":1776620023226}
