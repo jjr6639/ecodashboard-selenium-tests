@@ -1,0 +1,152 @@
+# ============================================================
+# FILE: .github/workflows/ci.yml
+# REPO: ecodashboard-selenium-tests
+#
+# PURPOSE:
+#   1. Check out THIS repo (the Selenium/TestNG tests)
+#   2. Check out the EcoDashboard APP repo into a subfolder
+#   3. Start the API (port 3001) and frontend (port 5173)
+#   4. Wait until both are responding
+#   5. Run the Selenium suite headless against them
+#   6. Publish the Allure report to GitHub Pages
+# ============================================================
+
+name: EcoDashboard Selenium Suite
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:   # manual "Run workflow" button for debugging
+
+jobs:
+  selenium-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # STEP 1 — Checkout THIS repo (selenium tests)
+      # By default actions/checkout puts the calling repo's code
+      # at the job's root working directory.
+      - name: Checkout selenium tests repo
+        uses: actions/checkout@v4
+
+      # STEP 2 — Checkout the EcoDashboard APP repo into a subfolder
+      # `repository:` lets you check out a DIFFERENT repo than the one
+      # the workflow lives in. `path:` puts it in its own folder so it
+      # doesn't collide with this repo's files (pom.xml, src/, etc).
+      - name: Checkout EcoDashboard app repo
+        uses: actions/checkout@v4
+        with:
+          repository: jjr6639/ecodashboard
+          path: ecodashboard-app
+          # If the app repo is ever made private, you'd need:
+          # token: ${{ secrets.ECODASHBOARD_PAT }}
+          # For now it's public so the default token works fine.
+
+      # STEP 3 — Set up Node.js for the app's frontend + API
+      # `cache: 'npm'` speeds up repeat runs by caching node_modules
+      # based on the package-lock.json files listed below.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            ecodashboard-app/package-lock.json
+            ecodashboard-app/api/package-lock.json
+
+      # STEP 4 — Install and start the API server (background)
+      # `nohup ... &` starts the process and immediately returns control
+      # to the workflow, so the next step can run while this keeps going.
+      # Output is redirected to api.log so you can inspect it if it crashes.
+      - name: Start API server (port 3001)
+        working-directory: ecodashboard-app/api
+        run: |
+          npm ci
+          nohup npm start > api.log 2>&1 &
+
+      # STEP 5 — Install and start the frontend dev server (background)
+      # Same pattern as above. Vite is configured to run on port 5173
+      # (see vite.config.js — host: '0.0.0.0', port: 5173).
+      - name: Start frontend dev server (port 5173)
+        working-directory: ecodashboard-app
+        run: |
+          npm ci
+          nohup npm run dev > frontend.log 2>&1 &
+
+      # STEP 6 — Wait until both servers respond
+      # `wait-on` polls URLs until they return a successful response,
+      # or until --timeout (ms) is hit. This prevents a race condition
+      # where Selenium starts BEFORE the app is ready, which would cause
+      # every test to fail with "connection refused".
+      # If this step times out, check api.log / frontend.log via the
+      # "Upload app logs" step below.
+      - name: Wait for app to be ready
+        run: |
+          npx --yes wait-on@7 \
+            http://localhost:3001/api/health \
+            http://localhost:5173 \
+            --timeout 60000
+
+      # STEP 7 — Set up Java (for the Selenium/TestNG suite)
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # STEP 8 — Install Chrome for Selenium to drive
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      # STEP 9 — Run the Selenium/TestNG suite
+      # -Dheadless=true is read by BaseTest.java (see the updated
+      # version) to add --headless=new to ChromeOptions.
+      # Without this flag, Chrome tries to open a real window and
+      # fails immediately on the CI runner (no display).
+      - name: Run TestNG suite
+        working-directory: .
+        run: mvn test -Dheadless=true -B
+
+      # STEP 10 — Upload app logs ONLY IF something failed
+      # This makes debugging much easier: if the app never started,
+      # api.log/frontend.log will show you why (port conflict,
+      # missing env var, RSS fetch error, etc).
+      - name: Upload app logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-logs
+          path: |
+            ecodashboard-app/api/api.log
+            ecodashboard-app/frontend.log
+
+      # STEP 11 — Generate the Allure report
+      # if: always() means this runs even if Step 9 failed,
+      # so you can see WHICH tests failed and WHY in a nice UI.
+      - name: Generate Allure report
+        if: always()
+        uses: simple-elf/allure-report-action@master
+        with:
+          allure_results: allure-results
+          allure_report: allure-report
+          allure_history: allure-history
+          keep_reports: 20
+
+      # STEP 12 — Deploy report to GitHub Pages
+      # Live at: https://jjr6639.github.io/ecodashboard-selenium-tests/
+      # Requires: Settings → Pages → branch: gh-pages, folder: /
+      # Requires: Settings → Actions → General → Workflow permissions
+      #           → "Read and write permissions"
+      - name: Deploy Allure report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
