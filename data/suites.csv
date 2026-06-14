@@ -1,0 +1,4 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"Verify at least one RSS feed card renders on the homepage","1040","feedCardsArePresentTest","EcoDashboard Test Suite","2026-06-14","passed","2026-06-14","tests.FeedCardsTest","Feed Cards Tests","tests.FeedCardsTest","feedCardsArePresentTest"
+"Verify every feed card has a non-empty title","1108","feedCardTitlesAreNotEmptyTest","EcoDashboard Test Suite","2026-06-14","passed","2026-06-14","tests.FeedCardsTest","Feed Cards Tests","tests.FeedCardsTest","feedCardTitlesAreNotEmptyTest"
+"Verify every feed card link that has an href points to a valid URL","1122","feedCardLinksAreValidTest","EcoDashboard Test Suite","2026-06-14","passed","2026-06-14","tests.FeedCardsTest","Feed Cards Tests","tests.FeedCardsTest","feedCardLinksAreValidTest"
