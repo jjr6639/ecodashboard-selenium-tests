@@ -1,24 +1,28 @@
 # EcoDashboard Selenium Test Suite
 
-Automated UI test suite for validating RSS feed card functionality in the EcoDashboard web application.
+[![EcoDashboard Selenium Suite](https://github.com/jjr6639/ecodashboard-selenium-tests/actions/workflows/ci.yml/badge.svg)](https://github.com/jjr6639/ecodashboard-selenium-tests/actions/workflows/ci.yml)
 
-This project uses Selenium WebDriver, TestNG, and Allure Reporting to verify that RSS feed cards are rendered correctly and contain valid content on the application's homepage.
+Automated UI tests for the RSS feed cards on the homepage of [EcoDashboard](https://github.com/jjr6639/ecodashboard).
 
----
+The suite uses Selenium WebDriver, TestNG and Allure. It runs locally against a dev server, and in GitHub Actions on every push and pull request to `main`. Each CI run publishes its Allure report to GitHub Pages.
 
-## Overview
-
-The test suite performs end-to-end validation of the EcoDashboard feed card components by checking:
-
-- Feed cards are displayed on the homepage
-- Feed card titles are present and non-empty
-- Feed card links contain valid URLs
-
-The framework follows the **Page Object Model (POM)** design pattern to separate page interactions from test logic, making the test suite easier to maintain and extend.
+**Latest test report:** https://jjr6639.github.io/ecodashboard-selenium-tests/
 
 ---
 
-## Tech Stack
+## What the suite checks
+
+| Test | What it verifies |
+|------|------------------|
+| `feedCardsArePresentTest` | At least one feed card (`.news-card`) renders on the homepage |
+| `feedCardTitlesAreNotEmptyTest` | Every card title (`.news-card h3`) found on the page has non-empty text |
+| `feedCardLinksAreValidTest` | Every card link (`a.news-card`) with an `href` points to an `http`/`https` URL. Cards with no link are skipped, because some RSS items have no URL. That is a feed data issue, not a UI bug. |
+
+The tests run against live RSS data from the app's API, so results depend on the feeds being reachable when the suite runs.
+
+---
+
+## Tech stack
 
 - Java 11
 - Selenium WebDriver 4
@@ -26,188 +30,104 @@ The framework follows the **Page Object Model (POM)** design pattern to separate
 - Maven
 - WebDriverManager
 - Allure Reports
-- Google Chrome
+- Google Chrome (headless in CI)
+- GitHub Actions + GitHub Pages
 
 ---
 
-## Project Structure
+## Project structure
 
 ```text
 ecodashboard-selenium-tests/
-│
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # CI: start the app, run the suite, publish the report
 ├── src/
-│   ├── test/
-│   │   ├── java/
-│   │   │   ├── pages/
-│   │   │   │   └── HomePage.java
-│   │   │   │
-│   │   │   └── tests/
-│   │   │       ├── BaseTest.java
-│   │   │       └── FeedCardsTest.java
-│   │   │
-│   │   └── resources/
-│   │       └── testng.xml
-│
-├── allure-results/
+│   └── test/
+│       ├── java/
+│       │   ├── pages/
+│       │   │   └── HomePage.java       # Page Object: locators and waits
+│       │   └── tests/
+│       │       ├── BaseTest.java       # Driver setup and teardown
+│       │       └── FeedCardsTest.java  # Test cases
+│       └── resources/
+│           └── testng.xml              # Suite definition
 ├── pom.xml
 └── README.md
 ```
 
+`allure-results/` and `target/` are created when the tests run.
+
 ---
 
-## Framework Design
+## Framework design
+
+The suite follows the **Page Object Model**: page locators and interactions live in `HomePage`, and the test classes only hold assertions.
 
 ### BaseTest
 
-Responsible for:
-
-- WebDriver initialization
-- Browser setup
-- Test environment configuration
-- Driver cleanup after execution
-
-The application under test is configured to run locally:
-
-```java
-http://localhost:5173
-```
-
----
+- Creates a fresh Chrome session before each test and quits it afterward
+- Opens the app at `http://localhost:5173`
+- Runs Chrome headless with a 1920×1080 viewport when `-Dheadless=true` is passed
 
 ### HomePage
 
-Page Object responsible for:
-
-- Retrieving feed cards
-- Retrieving feed card titles
-- Retrieving feed card links
-- Managing page-level interactions
-
-Element synchronization is handled through explicit waits.
-
----
+- Holds the locators for feed cards, titles and links
+- Waits up to 15 seconds for the feed cards to appear before returning elements, using explicit waits rather than fixed sleeps
 
 ### FeedCardsTest
 
-Contains functional validations for RSS feed cards.
-
-Implemented test cases:
-
-| Test Case | Description |
-|------------|-------------|
-| Feed Cards Present | Verifies at least one feed card is displayed |
-| Feed Card Titles Not Empty | Verifies every feed card contains a title |
-| Feed Card Links Valid | Verifies every feed card contains a valid URL |
+- Contains the three tests listed above, tagged with Allure `@Feature`, `@Severity` and `@Description` annotations
 
 ---
 
-## Prerequisites
+## Running locally
 
-Before running the tests, ensure the following are installed:
+### Prerequisites
 
 - Java 11 or higher
 - Maven 3.8 or higher
 - Google Chrome
+- The [EcoDashboard](https://github.com/jjr6639/ecodashboard) app running locally: frontend on `http://localhost:5173`, API on port 3001
 
-### Start the Application
-
-The EcoDashboard application must be running locally:
-
-```text
-http://localhost:5173
-```
-
-Launch the application before executing the test suite.
-
----
-
-## Installation
-
-Clone the repository:
+### Run the tests
 
 ```bash
-git clone https://github.com/your-username/ecodashboard-selenium-tests.git
+git clone https://github.com/jjr6639/ecodashboard-selenium-tests.git
 cd ecodashboard-selenium-tests
-```
-
-Install dependencies:
-
-```bash
-mvn clean install
-```
-
----
-
-## Running Tests
-
-Execute all tests:
-
-```bash
 mvn clean test
 ```
 
-The suite will run using the TestNG configuration located at:
-
-```text
-src/test/resources/testng.xml
-```
-
----
-
-## Allure Reporting
-
-Generate test results:
+To run headless, as CI does:
 
 ```bash
-mvn test
+mvn clean test -Dheadless=true
 ```
 
-Serve the Allure report:
+The suite is defined in `src/test/resources/testng.xml`.
+
+### View the Allure report
+
+You need the [Allure command-line tool](https://allurereport.org/docs/install/) for these commands.
 
 ```bash
+# Build a temporary report and open it in the browser
 allure serve allure-results
-```
 
-Generate a static report:
-
-```bash
+# Or generate a static report and open it
 allure generate allure-results --clean
 allure open
 ```
 
 ---
 
-## Sample Assertions
+## Continuous integration
 
-### Feed Card Presence
+`.github/workflows/ci.yml` runs on pushes and pull requests to `main`, and can also be started manually. Each run:
 
-```java
-Assert.assertFalse(cards.isEmpty(), "No feed cards found");
-```
-
-### Title Validation
-
-```java
-Assert.assertFalse(
-    title.getText().trim().isEmpty(),
-    "A feed card has an empty title"
-);
-```
-
-### URL Validation
-
-```java
-Assert.assertTrue(
-    href.startsWith("http"),
-    "Invalid URL: " + href
-);
-```
-
----
-
-## Current Test Coverage
-
-- RSS feed card visibility
-- Feed card title validation
-- Feed card URL validation
-- Basic UI verification
+1. Checks out this repo and the [EcoDashboard app repo](https://github.com/jjr6639/ecodashboard)
+2. Installs and starts the API (port 3001) and the Vite frontend (port 5173) in the background
+3. Waits until both respond (`/api/health` and the frontend), with a 60-second timeout
+4. Runs the suite in headless Chrome with `mvn test -Dheadless=true`
+5. Uploads the API and frontend logs as a build artifact if anything fails
+6. Generates the Allure report and deploys it to GitHub Pages, even when tests fail
